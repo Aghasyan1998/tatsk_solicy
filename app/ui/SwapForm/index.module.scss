@@ -1,0 +1,24 @@
+.swap_form_content {
+  padding: 8px;
+  background-color: #131823;
+  width: 480px;
+  max-width: 100%;
+  border-radius: 24px;
+  position: relative;
+
+  .swap_header {
+    padding: 7px 12px;
+    font-weight: 500;
+  }
+
+  .form_group {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px #202835;
+
+    .dropdown {
+      &:hover {
+        background-color: #06070a;
+      }
+    }
+  }
+}

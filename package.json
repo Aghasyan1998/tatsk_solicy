@@ -17,11 +17,14 @@
     "@ethersproject/solidity": "^5.6.1",
     "@ethersproject/units": "^5.6.1",
     "@web3-react/core": "^6.1.9",
+    "@web3-react/injected-connector": "^6.0.7",
     "axios": "^1.6.8",
     "bignumber.js": "^9.1.2",
+    "ethers": "^6.11.1",
     "next": "14.1.4",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "sass": "^1.72.0"
   },
   "devDependencies": {
     "@types/node": "^20",
