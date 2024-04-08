@@ -3,7 +3,7 @@
 import {buildTxForSwap1Inch, swap1InchQuote} from "@/utils/1inch/api";
 import { calculateGasMargin } from "@/utils/calculateGasMargin";
 import { ROUTER_ADDRESSES_1INCH } from "@/utils/constants";
-import {generate1InchSwapParams, generate1InchSwapQuoteParams, getSigner} from "@/utils/helpers";
+import {generate1InchSwapParams, generate1InchSwapQuoteParams, getSigner, switchNetwork} from "@/utils/helpers";
 import isZero from "@/utils/isZero";
 import { BigNumber } from "@ethersproject/bignumber";
 import { useWeb3React } from "@web3-react/core";
@@ -18,7 +18,8 @@ export const useSwap1Inch = ({
   tokensList
 }: IProps) => {
   const chainId = 1;
-  const { account, library } = useWeb3React();
+  const { account, library, chainId: chainIdAccount } = useWeb3React();
+
 
   const router1Inch = ROUTER_ADDRESSES_1INCH[chainId];
 
@@ -35,7 +36,7 @@ export const useSwap1Inch = ({
       const swapParams = generate1InchSwapQuoteParams(
           selectedTokenFrom.address,
           selectedTokenTo.address,
-          fromAmount
+          parseInt(fromAmount, 10)
       );
 
       swap1InchQuote(swapParams, chainId).then((res: any) => {
@@ -52,6 +53,14 @@ export const useSwap1Inch = ({
   const swap1Inch = async () => {
     if (!account || !selectedTokenTo) {
       return
+    }
+
+    if (chainIdAccount !== chainId) {
+      try {
+        await switchNetwork(chainId);
+      } catch (e) {
+        return
+      }
     }
 
     const from = selectedTokenFrom.address; // TO DO: set address from

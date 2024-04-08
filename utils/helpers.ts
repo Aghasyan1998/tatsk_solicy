@@ -1,6 +1,5 @@
 import BigNumber from "bignumber.js";
 import axios, {AxiosError} from "axios";
-import {NextResponse} from "next/server";
 
 export const TEN = new BigNumber(10);
 
@@ -41,12 +40,12 @@ export interface I1InchSwapParamsQuote {
 export const generate1InchSwapQuoteParams = (
     from: string,
     to: string,
-    amount: string
+    amount: number
 ): I1InchSwapParamsQuote => {
   return {
     src: from,
     dst: to,
-    amount
+    amount: toWei(amount).toString()
   }
 }
 
@@ -65,7 +64,7 @@ export const generate1InchSwapParams = (
   return {
     src: from, // The address of the token you want to swap from
     dst: to, // The address of the token you want to swap to
-    amount: amount.toString(), // The amount of the fromToken you want to swap (in wei)
+    amount: toWei(amount).toString(), // The amount of the fromToken you want to swap (in wei)
     from: account || "", // Wallet address from which the swap will be initiated
     slippage: slippage / 10000, // The maximum acceptable slippage percentage for the swap (e.g., 1 for 1%)
     disableEstimate: disableEstimate ?? false, // Whether to disable estimation of swap details (set to true to disable)
@@ -94,3 +93,41 @@ export function extractErrorDetails(error: AxiosError | Error) {
   }
 }
 
+export async function switchNetwork(targetChainId: number) {
+  try {
+    console.log(targetChainId, 'targetChainId')
+    // @ts-ignore
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: `0x${targetChainId.toString(16)}` }],
+    })
+  } catch (switchError: any) {
+    if (switchError.code === 4902) {
+      try {
+        // @ts-ignore
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [
+            {
+              chainId: `0x${targetChainId.toString(16)}`,
+              chainName: 'Polygon Mainnet',
+              nativeCurrency: {
+                name: 'MATIC',
+                symbol: 'MATIC',
+                decimals: 18,
+              },
+              rpcUrls: ['https://polygon-rpc.com/'],
+              blockExplorerUrls: ['https://polygonscan.com/'],
+            },
+          ],
+        });
+      } catch (addError) {
+        console.error('Failed to add the network:', addError);
+        throw new Error('Failed to add the network');
+      }
+    } else {
+      console.error('Failed to switch the network:', switchError);
+      throw new Error('Failed to switch the network');
+    }
+  }
+}
