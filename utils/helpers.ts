@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js";
+import axios, {AxiosError} from "axios";
 
 export const TEN = new BigNumber(10);
 
@@ -30,11 +31,29 @@ export interface I1InchSwapParams {
   usePermit2?: boolean;
 }
 
-export const generate1InchSwapParmas = (
+export interface I1InchSwapParamsQuote {
+  src: string;
+  dst: string;
+  amount: string;
+}
+
+export const generate1InchSwapQuoteParams = (
+    from: string,
+    to: string,
+    amount: number
+): I1InchSwapParamsQuote => {
+  return {
+    src: from,
+    dst: to,
+    amount: toWei(amount).toString()
+  }
+}
+
+export const generate1InchSwapParams = (
   from: string,
   to: string,
   amount: number,
-  account: string,
+  account: string | null | undefined,
   slippage: number,
   disableEstimate?: boolean,
   allowPartialFill?: boolean,
@@ -56,7 +75,59 @@ export const generate1InchSwapParmas = (
   };
 };
 
-export function getSigner(library: any, account: string) {
+export function getSigner(library: any, account: string | null | undefined) {
   return library.getSigner(account).connectUnchecked();
 }
 
+export function extractErrorDetails(error: AxiosError | Error) {
+  if (axios.isAxiosError(error) && error.response) {
+    return {
+      message: error.response.data.message || error.response.data.description,
+      status: error.response.data.statusCode
+    }
+  } else {
+    return {
+      message: error.message || 'Internal Server Error.',
+      status: 500
+    }
+  }
+}
+
+export async function switchNetwork(targetChainId: number) {
+  try {
+    console.log(targetChainId, 'targetChainId')
+    // @ts-ignore
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: `0x${targetChainId.toString(16)}` }],
+    })
+  } catch (switchError: any) {
+    if (switchError.code === 4902) {
+      try {
+        // @ts-ignore
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [
+            {
+              chainId: `0x${targetChainId.toString(16)}`,
+              chainName: 'Polygon Mainnet',
+              nativeCurrency: {
+                name: 'MATIC',
+                symbol: 'MATIC',
+                decimals: 18,
+              },
+              rpcUrls: ['https://polygon-rpc.com/'],
+              blockExplorerUrls: ['https://polygonscan.com/'],
+            },
+          ],
+        });
+      } catch (addError) {
+        console.error('Failed to add the network:', addError);
+        throw new Error('Failed to add the network');
+      }
+    } else {
+      console.error('Failed to switch the network:', switchError);
+      throw new Error('Failed to switch the network');
+    }
+  }
+}

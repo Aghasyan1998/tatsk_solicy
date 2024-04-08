@@ -1,29 +1,75 @@
 "use client";
 
-import { buildTxForSwap1Inch } from "@/utils/1inch/api";
+import {buildTxForSwap1Inch, swap1InchQuote} from "@/utils/1inch/api";
 import { calculateGasMargin } from "@/utils/calculateGasMargin";
 import { ROUTER_ADDRESSES_1INCH } from "@/utils/constants";
-import { generate1InchSwapParmas, getSigner } from "@/utils/helpers";
+import {generate1InchSwapParams, generate1InchSwapQuoteParams, getSigner, switchNetwork} from "@/utils/helpers";
 import isZero from "@/utils/isZero";
 import { BigNumber } from "@ethersproject/bignumber";
 import { useWeb3React } from "@web3-react/core";
+import {useCallback, useEffect, useState} from "react";
+import {Token} from "@/app/lib/definitions";
 
-export const useSwap1Inch = () => {
+interface IProps {
+  tokensList: Token[]
+}
+
+export const useSwap1Inch = ({
+  tokensList
+}: IProps) => {
   const chainId = 1;
-  const { account, library } = useWeb3React();
-  const typedValue = 1; // TO DO: get from input
+  const { account, library, chainId: chainIdAccount } = useWeb3React();
+
+
   const router1Inch = ROUTER_ADDRESSES_1INCH[chainId];
 
-  if (!account) return;
+  const [selectedTokenFrom, setSelectedTokenFrom] = useState<Token>(tokensList[0])
+  const [selectedTokenTo, setSelectedTokenTo] = useState<Token | null>(null)
+  const [fromAmount, setFromAmount] = useState<string>('');
+  const [toAmount, setToAmount] = useState<string>('');
+  const [error, setError] = useState<string>('')
 
-  const from = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"; // TO DO: set address from
 
-  const to = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"; // TO DO: set address to
+  useEffect(() => {
+    if (selectedTokenFrom && selectedTokenTo && Number(fromAmount)) {
+      setError('')
+      const swapParams = generate1InchSwapQuoteParams(
+          selectedTokenFrom.address,
+          selectedTokenTo.address,
+          parseInt(fromAmount, 10)
+      );
+
+      swap1InchQuote(swapParams, chainId).then((res: any) => {
+        if (res.success) {
+          setToAmount(res?.data.dstAmount)
+        } else {
+          console.error(res)
+          setError(res.message)
+        }
+      })
+    }
+  }, [selectedTokenTo, selectedTokenFrom, fromAmount, chainId])
 
   const swap1Inch = async () => {
+    if (!account || !selectedTokenTo) {
+      return
+    }
+
+    if (chainIdAccount !== chainId) {
+      try {
+        await switchNetwork(chainId);
+      } catch (e) {
+        return
+      }
+    }
+
+    const from = selectedTokenFrom.address; // TO DO: set address from
+    const to = selectedTokenTo.address; // TO DO: set address to
+    const typedValue = fromAmount; // TO DO: get from input
+
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const swapParams = generate1InchSwapParmas(
+    const swapParams = generate1InchSwapParams(
       from,
       to,
       Number(typedValue),
@@ -31,7 +77,14 @@ export const useSwap1Inch = () => {
       1
     );
 
-    const swapTransaction = await buildTxForSwap1Inch(swapParams, chainId);
+    const swapTransactionResponse = await buildTxForSwap1Inch(swapParams, chainId);
+
+    if (!swapTransactionResponse.success) {
+      console.error(swapTransactionResponse)
+      return
+    }
+
+    const { data: swapTransaction } = swapTransactionResponse;
 
     // TO DO: Remove when change DEV plan for 1Inch (1 Request per second)
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -72,5 +125,21 @@ export const useSwap1Inch = () => {
     }
   };
 
-  return { swap1Inch };
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.value) {
+      setToAmount('0')
+    }
+    setFromAmount(e.target.value)
+  }, [setFromAmount])
+
+  return {
+    swap1Inch,
+    selectedTokenFrom,
+    selectedTokenTo,
+    setSelectedTokenFrom,
+    setSelectedTokenTo,
+    handleInputChange,
+    fromAmount,
+    toAmount
+  };
 };

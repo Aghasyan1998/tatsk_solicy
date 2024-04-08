@@ -1,7 +1,8 @@
-import { I1InchSwapParams } from "../helpers";
-import axios1Inch from "./axiosInstance";
+import {extractErrorDetails, I1InchSwapParams, I1InchSwapParamsQuote} from "../helpers";
+import axios1InchClient from "@/utils/client-api";
+import {AxiosError} from "axios";
 
-const oneInchBaseUrl = process.env.REACT_APP_1INCH_BASE_URL || "";
+const oneInchBaseUrl = process.env.NEXT_PUBLIC_REACT_APP_1INCH_BASE_URL || "";
 
 export const create1InchProxyUrl = (url: string) =>
   `?url=${oneInchBaseUrl}${url}`;
@@ -18,15 +19,48 @@ export async function buildTxForSwap1Inch(
   swapParams: I1InchSwapParams,
   chainId: string | number
 ) {
-  const url = apiRequestUrl(
-    create1InchProxyUrl(`/swap/v6.0/${chainId}/swap`),
-    swapParams
-  );
-  try {
-    const response = await axios1Inch.get(url);
+  const url = creteProxyGetUrl(`/swap/v6.0/${chainId}/swap`, swapParams);
 
-    return response.data.tx;
+  try {
+    const response = await axios1InchClient.get(url);
+    return { success: true, data: response.data.tx };
   } catch (err) {
-    console.error(err);
+    const errorData = extractErrorDetails(err as AxiosError | Error)
+    return { success: false, message: errorData.message };
+  }
+}
+
+const creteProxyGetUrl = (url: string, params: any) => {
+  const searchParams = new URLSearchParams(params).toString()
+  return '?url=' + encodeURIComponent(`${url}?${searchParams}`)
+}
+
+export async function swap1InchQuote(
+    swapParams: I1InchSwapParamsQuote,
+    chainId: string | number
+) {
+  const url = creteProxyGetUrl(`/swap/v6.0/${chainId}/quote`, swapParams)
+
+  try {
+    const response = await axios1InchClient.get(url);
+
+    return { success: true, data: response.data };
+  } catch (err) {
+    const errorData = extractErrorDetails(err as AxiosError | Error)
+    return { success: false, message: errorData.message };
+  }
+}
+
+
+export async function fetchTokenList(
+    chainId: string | number
+) {
+  const url = creteProxyGetUrl(`/swap/v6.0/${chainId}/tokens`, {})
+
+  try {
+    return axios1InchClient.get(url)
+  } catch (err) {
+    const errorData = extractErrorDetails(err as AxiosError | Error)
+    console.error(errorData)
   }
 }
